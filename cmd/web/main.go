@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"flag"
+	"html/template"
 	"log/slog"
 	"net/http"
 	"os"
@@ -11,10 +12,11 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-// Application holds the dependencies for the HTTP handlers
+
 type application struct {
 	logger   *slog.Logger
 	snippets *models.SnippetModel
+	templateCache map[string]*template.Template
 }
 
 func main() {
@@ -35,15 +37,23 @@ func main() {
 	}
 	defer db.Close()
 
-	// Initialize the application struct with dependencies
+	templateCache, err := newTemplateCache()
+	if err != nil {
+		logger.Error(err.Error())
+		os.Exit(1)
+	}
+
+	
 	app := &application{
 		logger:   logger,
 		snippets: &models.SnippetModel{DB: db},
+		templateCache: templateCache,
+
 	}
 
 	logger.Info("starting server", "addr", *addr)
 
-	// Start the HTTP server using the routes defined below
+	
 	err = http.ListenAndServe(*addr, app.routes())
 	if err != nil {
 		logger.Error(err.Error())
@@ -51,7 +61,7 @@ func main() {
 	}
 }
 
-// openDB creates a database connection pool
+
 func openDB(dsn string) (*sql.DB, error) {
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
@@ -66,11 +76,16 @@ func openDB(dsn string) (*sql.DB, error) {
 	return db, nil
 }
 
-// routes defines the URL paths and handlers
 func (app *application) routes() *http.ServeMux {
 	mux := http.NewServeMux()
+
+	// Serve static files
+	fileServer := http.FileServer(http.Dir("./ui/static"))
+	mux.Handle("/static/", http.StripPrefix("/static", fileServer))
+
 	mux.HandleFunc("/", app.home)
 	mux.HandleFunc("/snippet/view", app.snippetView)
-	mux.HandleFunc("/snippet/create", app.snippetCreatePost) // POST handler
+	mux.HandleFunc("/snippet/create", app.snippetCreatePost)
+
 	return mux
 }
