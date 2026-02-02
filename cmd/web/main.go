@@ -76,16 +76,4 @@ func openDB(dsn string) (*sql.DB, error) {
 	return db, nil
 }
 
-func (app *application) routes() *http.ServeMux {
-	mux := http.NewServeMux()
 
-	// Serve static files
-	fileServer := http.FileServer(http.Dir("./ui/static"))
-	mux.Handle("/static/", http.StripPrefix("/static", fileServer))
-
-	mux.HandleFunc("/", app.home)
-	mux.HandleFunc("/snippet/view", app.snippetView)
-	mux.HandleFunc("/snippet/create", app.snippetCreatePost)
-
-	return mux
-}
